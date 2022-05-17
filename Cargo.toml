@@ -23,3 +23,6 @@ optional = true
 [features]
 static = ["ffi/static"]
 x11    = ["ffi/x11", "xcb"]
+
+[patch.crates-io]
+ffi = { package = "xkbcommon-sys", git = "https://github.com/kelnos/rust-xkbcommon-sys", branch = "release-0.7.x" }
