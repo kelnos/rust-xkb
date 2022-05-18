@@ -17,6 +17,8 @@ use ffi::*;
 use crate::{Keycode, ModMask, LayoutMask};
 use crate::{Context, Keymap, State};
 use crate::keymap::compile;
+use bitflags::bitflags;
+use std::mem::MaybeUninit;
 
 pub const MIN_MAJOR_XKB_VERSION: u16 = XKB_X11_MIN_MAJOR_XKB_VERSION as u16;
 pub const MIN_MINOR_XKB_VERSION: u16 = XKB_X11_MIN_MINOR_XKB_VERSION as u16;
@@ -49,6 +51,47 @@ impl From<i16> for LayoutMask {
 	fn from(value: i16) -> Self {
 		LayoutMask(value as xkb_layout_mask_t)
 	}
+}
+
+bitflags! {
+	pub struct Flags: xkb_x11_setup_xkb_extension_flags {
+		const NO_FLAGS = XKB_X11_SETUP_XKB_EXTENSION_NO_FLAGS;
+	}
+}
+
+pub const NO_FLAGS: Flags = Flags::NO_FLAGS;
+
+impl Default for Flags {
+	fn default() -> Self {
+		NO_FLAGS
+	}
+}
+
+#[inline]
+pub fn setup(connection: &xcb::Connection, major_version: u16, minor_version: u16, flags: Flags) -> Result<(u16, u16, u8, u8), ()> {
+    let mut actual_major = MaybeUninit::uninit();
+    let mut actual_minor = MaybeUninit::uninit();
+    let mut base_event = MaybeUninit::uninit();
+    let mut base_error = MaybeUninit::uninit();
+
+    let ret = unsafe {
+        xkb_x11_setup_xkb_extension(
+            connection.get_raw_conn() as *mut _,
+            major_version,
+            minor_version,
+            flags.bits(),
+            actual_major.as_mut_ptr(),
+            actual_minor.as_mut_ptr(),
+            base_event.as_mut_ptr(),
+            base_error.as_mut_ptr()
+        )
+    };
+
+    if ret != 1 {
+        Err(())
+    } else {
+        Ok(unsafe { (actual_major.assume_init(), actual_minor.assume_init(), base_event.assume_init(), base_error.assume_init()) })
+    }
 }
 
 #[inline]
